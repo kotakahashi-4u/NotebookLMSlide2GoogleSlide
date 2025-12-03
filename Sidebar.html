@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 10px; color: #333; }
+    
+    /* テーマカラー適用箇所: #FBBD03 */
+    h3 { margin-top: 0; color: #FBBD03; }
+    
+    .btn {
+      background-color: #FBBD03; 
+      color: white; 
+      padding: 10px 15px; border: none;
+      border-radius: 4px; cursor: pointer; width: 100%; font-size: 14px; margin-bottom: 10px;
+      font-weight: bold;
+      text-shadow: 0px 1px 1px rgba(0,0,0,0.1); /* 文字を読みやすくする微調整 */
+      transition: background-color 0.2s;
+    }
+    
+    /* ホバー時は少し濃い色にする */
+    .btn:hover:not(:disabled) {
+      background-color: #eaae03; 
+    }
+    
+    .btn:disabled { background-color: #ccc; cursor: not-allowed; text-shadow: none;}
+    
+    .file-input-wrapper {
+      border: 2px dashed #ccc; padding: 20px; text-align: center;
+      margin-bottom: 15px; border-radius: 4px; background: #fafafa;
+      transition: border-color 0.2s;
+    }
+    
+    /* ファイル選択エリアのホバー色 */
+    .file-input-wrapper:hover { border-color: #FBBD03; }
+    
+    #status { font-size: 12px; margin-top: 10px; white-space: pre-wrap; }
+    .progress-bar { width: 100%; height: 5px; background: #ddd; margin-top: 5px; }
+    
+    /* プログレスバーの色 */
+    .progress-fill { width: 0%; height: 100%; background: #FBBD03; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <h3>PDF to Slides 変換</h3>
+  <p style="font-size: 12px; color: #666;">
+    NotebookLMのPDFを選択してください。<br>
+    画像は背景に、テキストはノートに配置されます。
+  </p>
+
+  <div class="file-input-wrapper">
+    <input type="file" id="fileInput" accept="application/pdf" style="width: 100%;">
+  </div>
+
+  <button id="runBtn" class="btn" disabled>スライドを作成開始</button>
+
+  <div id="progressArea" style="display:none;">
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    <div id="status">待機中...</div>
+  </div>
+
+  <script>
+    // PDF.js Worker設定
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const fileInput = document.getElementById('fileInput');
+    const runBtn = document.getElementById('runBtn');
+    const statusDiv = document.getElementById('status');
+    const progressFill = document.getElementById('progressFill');
+    const progressArea = document.getElementById('progressArea');
+    
+    let currentFile = null;
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        currentFile = e.target.files[0];
+        runBtn.disabled = false;
+        statusDiv.textContent = "ファイル選択済み: " + currentFile.name;
+      }
+    });
+
+    runBtn.addEventListener('click', async () => {
+      if (!currentFile) return;
+      
+      runBtn.disabled = true;
+      progressArea.style.display = 'block';
+      statusDiv.textContent = "PDFを解析中...";
+
+      try {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const totalPages = pdf.numPages;
+
+        for (let i = 1; i <= totalPages; i++) {
+          updateStatus(`ページ処理中: ${i} / ${totalPages}`);
+          updateProgress((i - 1) / totalPages * 100);
+
+          const page = await pdf.getPage(i);
+          
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({
+            canvasContext: context,
+            viewport: viewport
+          }).promise;
+
+          const imgData = canvas.toDataURL('image/png');
+
+          const textContent = await page.getTextContent();
+          const textNotes = textContent.items.map(item => item.str).join(' ');
+
+          await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler((res) => {
+                if(res.success) resolve(res);
+                else reject(new Error(res.error));
+              })
+              .withFailureHandler((err) => reject(err))
+              .addSlideFromData(imgData, textNotes, i);
+          });
+        }
+
+        updateProgress(100);
+        updateStatus("完了しました！");
+        runBtn.disabled = false;
+        currentFile = null; 
+        fileInput.value = "";
+
+      } catch (e) {
+        console.error(e);
+        updateStatus("エラー: " + e.message);
+        runBtn.disabled = false;
+      }
+    });
+
+    function updateStatus(msg) {
+      statusDiv.textContent = msg;
+    }
+
+    function updateProgress(percent) {
+      progressFill.style.width = percent + '%';
+    }
+  </script>
+</body>
+</html>
