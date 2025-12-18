@@ -6,13 +6,13 @@ Google Apps Scriptを用いて、NotebookLMで出力したPDF形式のスライ�
 ## 使い方
 1. Googleスライドのコンテナバインド型としてGASを開く。
    <img width="777" height="150" alt="Image" src="https://github.com/user-attachments/assets/ed751297-0442-4cc7-89d1-a589b80a1108" />
-2. 開いたスクリプトエディタ上のコード.gsに本リポジトリの ![code.gs](https://github.com/kotakahashi-4u/NotebookLMSlide2GoogleSlide/blob/main/code.gs) の内容をコピーする。
+2. 開いたスクリプトエディタ上のコード.gsに本リポジトリの <a href="https://github.com/kotakahashi-4u/NotebookLMSlide2GoogleSlide/blob/main/code.gs" target="_blank">code.gs</a> の内容をコピーする。
    <img width="679" height="253" alt="Image" src="https://github.com/user-attachments/assets/e593fcb1-8f27-4779-9803-0f587461ebc4" /> 
 3. スクリプトエディタ上の「＋」ボタンを押下し、HTMLファイルを選択する。
    <img width="595" height="255" alt="Image" src="https://github.com/user-attachments/assets/a75d9805-a296-4d99-b160-b086f6288af6" />
 4. ファイル名は「Sidebar」と入力する。このとき、ファイル名は大文字小文字も区別されるため、「Sidebar」と同一にすること。
    <img width="594" height="244" alt="Image" src="https://github.com/user-attachments/assets/23ab603f-86df-4bc0-8d1d-ac21f937962d" />
-5. 作成したSidebar.htmlに本リポジトリの ![Sidebar.html](https://github.com/kotakahashi-4u/NotebookLMSlide2GoogleSlide/blob/main/Sidebar.html) の内容をコピーする。
+5. 作成したSidebar.htmlに本リポジトリの <a href="https://github.com/kotakahashi-4u/NotebookLMSlide2GoogleSlide/blob/main/Sidebar.html" target="_blank">Sidebar.html</a> の内容をコピーする。
 6. 作成後にGoogleスライドをリロードすると、メニュータブに「PDF変換ツール」が表示されることを確認する。
    <img width="1440" height="159" alt="Image" src="https://github.com/user-attachments/assets/bf4c926f-2b9a-467f-95b7-16e96321ea11" />
 8. Googleスライドのメニューから PDF変換ツール > 変換サイドバーを開く を選択しサイドバーを呼び出す。
