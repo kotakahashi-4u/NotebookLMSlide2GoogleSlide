@@ -3,10 +3,10 @@
 <head>
   <base target="_top">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
   <style>
     body { font-family: sans-serif; padding: 10px; color: #333; }
-    
-    /* テーマカラー適用箇所: #FBBD03 */
     h3 { margin-top: 0; color: #FBBD03; }
     
     .btn {
@@ -15,15 +15,10 @@
       padding: 10px 15px; border: none;
       border-radius: 4px; cursor: pointer; width: 100%; font-size: 14px; margin-bottom: 10px;
       font-weight: bold;
-      text-shadow: 0px 1px 1px rgba(0,0,0,0.1); /* 文字を読みやすくする微調整 */
+      text-shadow: 0px 1px 1px rgba(0,0,0,0.1);
       transition: background-color 0.2s;
     }
-    
-    /* ホバー時は少し濃い色にする */
-    .btn:hover:not(:disabled) {
-      background-color: #eaae03; 
-    }
-    
+    .btn:hover:not(:disabled) { background-color: #eaae03; }
     .btn:disabled { background-color: #ccc; cursor: not-allowed; text-shadow: none;}
     
     .file-input-wrapper {
@@ -31,29 +26,25 @@
       margin-bottom: 15px; border-radius: 4px; background: #fafafa;
       transition: border-color 0.2s;
     }
-    
-    /* ファイル選択エリアのホバー色 */
     .file-input-wrapper:hover { border-color: #FBBD03; }
     
     #status { font-size: 12px; margin-top: 10px; white-space: pre-wrap; }
     .progress-bar { width: 100%; height: 5px; background: #ddd; margin-top: 5px; }
-    
-    /* プログレスバーの色 */
     .progress-fill { width: 0%; height: 100%; background: #FBBD03; transition: width 0.3s; }
   </style>
 </head>
 <body>
-  <h3>PDF to Slides 変換</h3>
+  <h3>PDF to Slides + ZIP</h3>
   <p style="font-size: 12px; color: #666;">
     NotebookLMのPDFを選択してください。<br>
-    画像は背景に、テキストはノートに配置されます。
+    スライド作成と同時に画像ZIPをダウンロードします。
   </p>
 
   <div class="file-input-wrapper">
     <input type="file" id="fileInput" accept="application/pdf" style="width: 100%;">
   </div>
 
-  <button id="runBtn" class="btn" disabled>スライドを作成開始</button>
+  <button id="runBtn" class="btn" disabled>実行（スライド作成 & DL）</button>
 
   <div id="progressArea" style="display:none;">
     <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
@@ -88,16 +79,21 @@
       statusDiv.textContent = "PDFを解析中...";
 
       try {
+        // ZIPオブジェクトの初期化
+        const zip = new JSZip();
+        const folder = zip.folder("slides_images"); // フォルダの中にまとめる
+
         const arrayBuffer = await currentFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         const totalPages = pdf.numPages;
 
         for (let i = 1; i <= totalPages; i++) {
-          updateStatus(`ページ処理中: ${i} / ${totalPages}`);
+          updateStatus(`処理中: ${i} / ${totalPages} ページ`);
           updateProgress((i - 1) / totalPages * 100);
 
           const page = await pdf.getPage(i);
           
+          // 画像解像度設定 (scale: 2.0 は高画質用)
           const viewport = page.getViewport({ scale: 2.0 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
@@ -109,11 +105,22 @@
             viewport: viewport
           }).promise;
 
+          // 画像データを取得 (DataURL形式)
           const imgData = canvas.toDataURL('image/png');
+          
+          // --- ZIPへの追加処理 ---
+          // data:image/png;base64,... のヘッダーを除去して純粋なBase64にする
+          const base64Data = imgData.split(',')[1];
+          // ファイル名をゼロ埋め (page_001.png) にしてソートしやすくする
+          const fileName = `page_${String(i).padStart(3, '0')}.png`;
+          folder.file(fileName, base64Data, {base64: true});
+          // --------------------
 
+          // テキスト抽出
           const textContent = await page.getTextContent();
           const textNotes = textContent.items.map(item => item.str).join(' ');
 
+          // GASへ送信してスライド作成
           await new Promise((resolve, reject) => {
             google.script.run
               .withSuccessHandler((res) => {
@@ -126,7 +133,27 @@
         }
 
         updateProgress(100);
-        updateStatus("完了しました！");
+        updateStatus("スライド作成完了。ZIPを生成中...");
+
+        // --- ZIPダウンロード処理 ---
+        const content = await zip.generateAsync({type: "blob"});
+        const downloadLink = document.createElement("a");
+        const url = URL.createObjectURL(content);
+        
+        // 元のファイル名から拡張子を除いてzip名にする
+        const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+        downloadLink.href = url;
+        downloadLink.download = `${baseName}_images.zip`;
+        
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // メモリ解放
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        // -------------------------
+
+        updateStatus("完了！画像をダウンロードしました。");
         runBtn.disabled = false;
         currentFile = null; 
         fileInput.value = "";
