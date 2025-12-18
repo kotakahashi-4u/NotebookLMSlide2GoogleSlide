@@ -37,8 +37,25 @@ function addSlideFromData(imageBase64, textNotes, pageIndex) {
     // 新しいスライドを追加
     const slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
     
-    // 【修正箇所】背景に画像を設定 (setPicture -> setPictureFill)
-    slide.getBackground().setPictureFill(blob);
+    const image = slide.insertImage(blob);
+    // 1. スライドと画像のサイズを取得
+    const pageWidth = pres.getPageWidth();
+    const pageHeight = pres.getPageHeight();
+    const imgWidth = image.getWidth();
+    const imgHeight = image.getHeight();
+
+    // 2. 幅と高さ、どちらに合わせて拡大するか倍率を計算
+    // Math.min を使うことで、スライドからはみ出さない最大サイズになります
+    const scaleX = pageWidth / imgWidth;
+    const scaleY = pageHeight / imgHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    // 3. 画像サイズを変更
+    image.setWidth(imgWidth * scale);
+    image.setHeight(imgHeight * scale);
+
+    // 4. スライドの中央に配置
+    image.alignOnPage(SlidesApp.AlignmentPosition.CENTER);
     
     // スピーカーノートにテキストを設定
     if (textNotes && textNotes.trim() !== "") {
